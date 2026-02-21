@@ -1,41 +1,51 @@
 import numpy as np 
 import random 
 
-class MapGenerator :
-    def __init__(self, rowsize=10, columnsize=10):
+class MapGenerator:
+    def __init__(self, rowsize=10, columnsize=10, mine_percentage=12):
         self.row = rowsize
         self.column = columnsize
         self.map = np.zeros((self.row, self.column), dtype=int)
-        self.total_mines = (random.randint(7, 15)*self.row*self.column)//100
-        self.mineLocation = []
-        self.safetiles = self.row*self.column-self.total_mines
-        for _ in range(self.total_mines) :
-            i = random.randint(0, self.row-1)
-            j = random.randint(0, self.column-1)
-            self.map[i][j] = -1
-            self.mineLocation.append((i, j))
+        
+        # Calculate mines based on a percentage of the total area
+        self.total_mines = (self.row * self.column * mine_percentage) // 100
+        self.safetiles = (self.row * self.column) - self.total_mines
+        self.mine_locations = []
 
-        for i in range(self.row) :
-            for j in range(self.column) : 
-                if self.map[i][j] == -1 :
-                    # i, j+1 = R            if j+1 < self.column
-                    # i, j-1 = L            if j-1 >= 0
-                    # i+1, j = D            if i+1 < self.row 
-                    # i-1, j = U            if i-1 >= 0
-                    # i-1, j-1 = UL         if i and j >=0
-                    # i-1, j+1 = UR         if i>=0 and j+1<self.column
-                    # i+1, j-1 = DL         if i+1<self.row and j>=0
-                    # i+1, j+1 = DR
-                    if j+1<self.column and self.map[i][j+1]!=-1 : self.map[i][j+1] += 1    # R
-                    if j-1>=0 and self.map[i][j-1]!=-1 : self.map[i][j-1] += 1        # L
-                    if i+1<self.row and self.map[i+1][j]!=-1 : self.map[i+1][j] += 1       # D
-                    if i-1>=0 and self.map[i-1][j]!=-1 : self.map[i-1][j] += 1        # U
-                    if i>0 and j>0 and self.map[i-1][j-1]!=-1 : self.map[i-1][j-1] += 1
-                    if i>0 and j+1<self.column and self.map[i-1][j+1]!=-1 : self.map[i-1][j+1] += 1
-                    if i+1<self.row and j>0 and self.map[i+1][j-1]!=-1 : self.map[i+1][j-1] += 1
-                    if i+1<self.row and j+1<self.column and self.map[i+1][j+1]!=-1 : self.map[i+1][j+1] += 1
-      
+        self._place_mines()
+        self._calculate_numbers()
 
-if __name__=="__main__" :
-    obj = MapGenerator()
-    print(obj.map)
+    def _place_mines(self):
+        """Guarantees exact mine count using a random sample of coordinates."""
+        all_possible_coords = [(r, c) for r in range(self.row) for c in range(self.column)]
+        
+        # random.sample is perfect here: it picks unique items without replacement
+        self.mine_locations = random.sample(all_possible_coords, self.total_mines)
+        
+        for r, c in self.mine_locations:
+            self.map[r][c] = -1
+
+    def _calculate_numbers(self):
+        """Iterates through mines and increments neighbors using a vector offset."""
+        for r, c in self.mine_locations:
+            # Check all 8 neighbors in a 3x3 grid around the mine
+            for dr in [-1, 0, 1]:
+                for dc in [-1, 0, 1]:
+                    if dr == 0 and dc == 0:
+                        continue # Skip the mine itself
+                    
+                    nr, nc = r + dr, c + dc
+                    
+                    # Boundary check and ensure we don't overwrite another mine
+                    if 0 <= nr < self.row and 0 <= nc < self.column:
+                        if self.map[nr][nc] != -1:
+                            self.map[nr][nc] += 1
+
+    def __repr__(self):
+        return str(self.map)
+
+if __name__ == "__main__":
+    # Test with a 10x10 grid
+    obj = MapGenerator(10, 10, mine_percentage=15)
+    print("Minesweeper Map Matrix:")
+    print(obj)
